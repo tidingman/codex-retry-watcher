@@ -61,7 +61,7 @@ final class Watcher {
 
     struct Config {
         var triggers: [String] = ["at capacity"]
-        var buttonLabels: [String] = ["retry", "try again"]
+        var buttonLabels: [String] = ["retry", "try again", "重试", "再试一次"]
         var interval: TimeInterval = 3
         var cooldown: TimeInterval = 10
         /// 0 means unlimited: keep retrying as long as the error is on screen.
@@ -173,53 +173,59 @@ final class Watcher {
         var pressed = false
         var giveUpNow = false
         var pressLog: [String] = []
+        let scanStatus = status
+        // A cooldown belongs to a scan cycle, not to the first window we
+        // happen to visit. Otherwise the first matching window suppresses
+        // every other conversation until the next timer tick.
+        let cooldownActive = !force && scanStatus.lastPress.map {
+            Date().timeIntervalSince($0) < config.cooldown
+        } ?? false
 
-        for window in axElements(app, "AXWindows") {
+        for (windowIndex, window) in axElements(app, "AXWindows").enumerated() {
             var sawTrigger = false
-            var button: AXUIElement?
+            var buttons: [AXUIElement] = []
 
             axWalk(window) { node in
                 if !sawTrigger, textContainsAny(node.text, needles: config.triggers) { sawTrigger = true }
-                if button == nil, isButtonRole(node.role),
+                if isButtonRole(node.role),
                    textMatchesLabel(node.text, labels: config.buttonLabels) {
-                    button = node.el
+                    buttons.append(node.el)
                 }
-                return sawTrigger && button != nil
+                return false
             }
 
             // With no trigger configured, a visible Retry button *is* the signal.
-            if sawTrigger || (config.triggers.isEmpty && button != nil) { errorVisible = true }
+            if sawTrigger || (config.triggers.isEmpty && !buttons.isEmpty) { errorVisible = true }
 
             let allowed = sawTrigger || config.triggers.isEmpty || force
-            guard allowed, let target = button else { continue }
+            guard allowed, !buttons.isEmpty else { continue }
 
-            let snapshot = status
             if !force {
-                guard snapshot.enabled, !snapshot.gaveUp else { continue }
-                if let last = snapshot.lastPress, Date().timeIntervalSince(last) < config.cooldown { continue }
-                if config.maxConsecutive > 0, snapshot.consecutive >= config.maxConsecutive {
+                guard scanStatus.enabled, !scanStatus.gaveUp, !cooldownActive else { continue }
+                if config.maxConsecutive > 0, scanStatus.consecutive >= config.maxConsecutive {
                     giveUpNow = true
                     continue
                 }
             }
 
-            let label = axString(target, "AXTitle") ?? axString(target, "AXDescription") ?? "Retry"
+            for target in buttons {
+                let label = axString(target, "AXTitle") ?? axString(target, "AXDescription") ?? "Retry"
 
-            if snapshot.dryRun {
-                pressLog.append("[dry-run] would press \"\(label)\"\(force ? " (manual)" : "")")
-            } else {
-                let err = AXUIElementPerformAction(target, "AXPress" as CFString)
-                guard err == .success else {
-                    pressLog.append("press failed on \"\(label)\": AXError \(err.rawValue)")
-                    continue
+                if scanStatus.dryRun {
+                    pressLog.append("[dry-run] would press \"\(label)\" in window \(windowIndex)\(force ? " (manual)" : "")")
+                } else {
+                    let err = AXUIElementPerformAction(target, "AXPress" as CFString)
+                    guard err == .success else {
+                        pressLog.append("press failed on \"\(label)\" in window \(windowIndex): AXError \(err.rawValue)")
+                        continue
+                    }
+                    pressLog.append("pressed \"\(label)\" in window \(windowIndex)\(force ? " (manual)" : "")")
                 }
-                pressLog.append("pressed \"\(label)\"\(force ? " (manual)" : "")")
-            }
-            pressed = true
-            mutate { s in
-                s.lastPress = Date()
-                s.totalPresses += 1
-                if !force { s.consecutive += 1 }
+                pressed = true
+                mutate { s in
+                    s.lastPress = Date()
+                    s.totalPresses += 1
+                }
             }
         }
 
@@ -233,6 +239,7 @@ final class Watcher {
             s.errorVisible = errorVisible
             s.lastScan = Date()
             if giveUpNow { s.gaveUp = true }
+            if pressed && !force { s.consecutive += 1 }
             if cleared { s.consecutive = 0; s.gaveUp = false }
         }
 

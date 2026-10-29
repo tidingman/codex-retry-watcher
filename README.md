@@ -129,7 +129,7 @@ It won't hammer the backend:
 | Scan interval | 3s | `--interval` |
 | Cooldown after a press | 10s | `--cooldown` |
 | Give up (and notify) after N presses without recovery | off — retries indefinitely | `--max-consecutive N` |
-| Button labels matched | `retry`, `try again` | `--button "retry,resume"` |
+| Button labels matched | `retry`, `try again`, `重试`, `再试一次` | `--button "retry,resume"` |
 
 By default it never gives up: as long as the error is on screen and watching is
 on, it keeps pressing (one press per cooldown). Pass `--max-consecutive N` if
@@ -173,7 +173,12 @@ launchctl load -w ~/Library/LaunchAgents/local.codex-retry-watcher.plist
 
 A press only happens when a Retry-style button and the trigger text are found
 in the *same window*, which is what keeps it from clicking unrelated Retry
-buttons.
+buttons. Each scan visits every exposed Codex window and presses every matching
+Retry button, so simultaneous conversations can be handled together.
+
+The default button list includes the Chinese labels `重试` and `再试一次`. The
+capacity error text is still matched by `at capacity`; use `--trigger` if the
+error message is localized in your Codex build.
 
 ## Limitations
 

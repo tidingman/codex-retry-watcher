@@ -31,7 +31,7 @@ while index < arguments.count {
     case "--max-consecutive": config.maxConsecutive = Int(next() ?? "") ?? config.maxConsecutive
     case "--trigger":   config.triggers = [next() ?? "at capacity"]
     case "--button":
-        config.buttonLabels = (next() ?? "retry").lowercased()
+        config.buttonLabels = (next() ?? "retry,try again,重试,再试一次").lowercased()
             .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
     case "-h", "--help":
         print("""
@@ -52,7 +52,7 @@ while index < arguments.count {
                               (default 0 = never give up, retry while the error shows)
           --trigger <text>    require this text in the window (default "at capacity")
           --any-retry         press Retry regardless of the message shown
-          --button <a,b>      button labels to press (default "retry,try again")
+          --button <a,b>      button labels to press (default "retry,try again,重试,再试一次")
 
         log: ~/.local/share/codex-retry-watcher/watcher.log
         """)

@@ -115,7 +115,7 @@ TCC 把辅助功能权限归属到**责任进程(responsible process)**。
 | 扫描间隔 | 3s | `--interval` |
 | 按下后冷却 | 10s | `--cooldown` |
 | 连续按几次仍不恢复就放弃并发通知 | 关闭 —— 无限重试 | `--max-consecutive N` |
-| 匹配的按钮文案 | `retry`,`try again` | `--button "retry,resume"` |
+| 匹配的按钮文案 | `retry`,`try again`,`重试`,`再试一次` | `--button "retry,resume"` |
 
 默认永不放弃:只要错误还在屏幕上、监听是开着的,它就一直按(每个冷却周期按一次)。
 想让它按 N 次后停下并通知你,传 `--max-consecutive N`;想降低频率,把 `--cooldown` 调大。
@@ -149,8 +149,13 @@ launchctl load -w ~/Library/LaunchAgents/local.codex-retry-watcher.plist
   (而不是缩放一张大图),16pt 下自动去掉闪电免得糊成一团。
   `bash icon/make-icon.sh` 重新生成。
 
-只有当 Retry 按钮和触发文案出现在**同一个窗口**里才会按 —— 这是它不会误点别处
-Retry 的原因。
+只有当 Retry 按钮和触发文案出现在**同一个窗口**里才会按。每次扫描会遍历
+Codex 暴露的所有窗口，并按下每个符合条件的 Retry 按钮，所以多个 Codex
+窗口或多个同时报错的对话都可以一起处理。
+
+默认按钮文案已经包含中文的 `重试` 和 `再试一次`。如果你的 Codex 版本连错误
+提示文本也本地化了,可以用 `--trigger` 指定实际显示的文本,或者用
+`--any-retry` 跳过错误文本匹配。
 
 ## 限制
 
